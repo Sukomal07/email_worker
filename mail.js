@@ -3,17 +3,18 @@ import dotenv from "dotenv"
 
 dotenv.config()
 
-const sendMail = async (
+const sendEMail = async (
     toMail,
     subject,
     message
 ) => {
-    let transporter;
-
+    console.log(`Preparing to send email to: ${toMail}`);
     try {
         // Create the transporter
-        transporter = nodemailer.createTransport({
-            service: "gmail",
+        const transporter = nodemailer.createTransport({
+            host: "smtp.gmail.com",
+            port: 465, // or 587
+            secure: true,
             auth: {
                 user: process.env.EMAIL_USER,
                 pass: process.env.EMAIL_PASS,
@@ -21,20 +22,29 @@ const sendMail = async (
         });
 
         // Send the email
-        await transporter.sendMail({
+        const info = await transporter.sendMail({
             from: process.env.EMAIL_USER,
             to: toMail,
             subject: subject,
             html: message,
+            replyTo: process.env.EMAIL_USER,
+            messageId: true
+        }).catch(err => console.log(err))
+
+        console.log('Email sent successfully:', {
+            messageId: info.messageId,
+            accepted: info.accepted,
+            rejected: info.rejected
         });
 
-        // Return success
         return {
             success: true,
             message: `Email sent successfully to ${toMail}`,
+            messageId: info.messageId
         };
     } catch (error) {
         // Handle errors
+        cconsole.error(`Failed to send email to ${toMail}:`, error);
         return {
             success: false,
             message: "Failed to send email.",
@@ -43,4 +53,4 @@ const sendMail = async (
     }
 };
 
-export default sendMail;
+export default sendEMail;

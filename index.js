@@ -1,13 +1,14 @@
 import { Worker } from 'bullmq';
-import sendMail from './mail.js';
+import sendEMail from './mail.js';
+import dotenv from "dotenv"
+
+dotenv.config()
 
 export const emailWorker = new Worker('emailQueue', async (job) => {
     const { email, subject, emailBody } = job.data;
     try {
-        await sendMail(email, subject, emailBody);
-        console.log(`Email sent successfully to ${email}`);
+        await sendEMail(email, subject, emailBody);
     } catch (error) {
-        console.error(`Failed to send email to ${email}:`, error);
         throw error;
     }
 }, {
