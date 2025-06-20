@@ -44,7 +44,7 @@ const sendEMail = async (
         };
     } catch (error) {
         // Handle errors
-        cconsole.error(`Failed to send email to ${toMail}:`, error);
+        console.error(`Failed to send email to ${toMail}:`, error);
         return {
             success: false,
             message: "Failed to send email.",
