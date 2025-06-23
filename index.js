@@ -2,6 +2,7 @@ import { Worker } from 'bullmq';
 import sendEMail from './mail.js';
 import dotenv from "dotenv"
 import axios from 'axios';
+import { sendPushNotification } from './sendPushNotification.js';
 
 dotenv.config()
 
@@ -40,6 +41,40 @@ export const quizApiWorker = new Worker('quiz_api_calls', async (job) => {
         delay: 2 * 60 * 1000, // Start with 2-minute delay, increasing exponentially
     }
 })
+
+export const notificationWorker = new Worker('notification', async (job) => {
+    const { expoPushToken, title, body, data } = job.data;
+    try {
+        await sendPushNotification(expoPushToken, title, body, data)
+    } catch (error) {
+        throw error;
+    }
+}, {
+    connection: {
+        host: 'localhost',
+        port: 6379,
+    }
+});
+
+// Listen for Redis connection errors
+notificationWorker.on('error', (error) => {
+    console.error('Redis connection error in notificationWorker:', error);
+});
+
+// Listen for when the worker is ready
+notificationWorker.on('ready', () => {
+    console.log('Notification worker is now ready and connected to Redis.');
+});
+
+// Listen for when a job fails
+notificationWorker.on('failed', (job, error) => {
+    console.error(`Notification job ${job?.id} failed with error:`, error);
+});
+
+// Listen for when a job is completed
+notificationWorker.on('completed', (job) => {
+    console.log(`Notification job ${job.id} completed successfully`);
+});
 
 // Listen for Redis connection errors
 quizApiWorker.on('error', (error) => {
