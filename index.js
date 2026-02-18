@@ -44,9 +44,10 @@ export const quizApiWorker = new Worker('quiz_api_calls', async (job) => {
 })
 
 export const notificationWorker = new Worker('notification', async (job) => {
-    const { token, title, description, data } = job.data;
     try {
-        await sendPushNotification(token, title, description, data)
+        const payload = job.data;
+        await sendPushNotification(payload);
+        return { success: true };
     } catch (error) {
         throw error;
     }
