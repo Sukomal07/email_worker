@@ -16,38 +16,6 @@ const removeInvalidToken = async (token) => {
     }
 };
 
-const checkReceipts = async (tickets, tokenMap) => {
-    const receiptIds = tickets
-        .filter(t => t.status === 'ok' && t.id)
-        .map(t => t.id);
-
-    if (!receiptIds.length) return;
-
-    // Wait before checking receipts (Expo recommends ~15 min in production)
-    await new Promise(res => setTimeout(res, 15 * 60 * 1000));
-
-    const receiptChunks = expo.chunkPushNotificationReceiptIds(receiptIds);
-
-    for (const chunk of receiptChunks) {
-        try {
-            const receipts = await expo.getPushNotificationReceiptsAsync(chunk);
-
-            for (const [receiptId, receipt] of Object.entries(receipts)) {
-                if (receipt.status === 'error') {
-                    console.error(`Receipt error [${receiptId}]: ${receipt.message}`);
-
-                    if (receipt.details?.error === 'DeviceNotRegistered') {
-                        const token = tokenMap[receiptId];
-                        if (token) await removeInvalidToken(token);
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error checking receipts:', error);
-        }
-    }
-};
-
 export const sendPushNotification = async (payload) => {
     try {
         const {
@@ -97,31 +65,30 @@ export const sendPushNotification = async (payload) => {
 
         const tickets = [];
 
+        let tokenIndex = 0;
+
         for (const chunk of chunks) {
             const ticketChunk =
                 await expo.sendPushNotificationsAsync(chunk);
+
+            ticketChunk.forEach((ticket, index) => {
+                const token = validTokens[tokenIndex + index];
+
+                if (ticket.status === 'error') {
+                    console.error(`Push error for token ${token}:`, ticket.message);
+
+                    if (ticket.details?.error === 'DeviceNotRegistered') {
+                        removeInvalidToken(token);
+                    }
+                }
+            });
+
+            tokenIndex += chunk.length;
 
             tickets.push(...ticketChunk);
         }
 
         console.log("Push tickets:", tickets);
-
-        const tokenMap = {};
-        tickets.forEach((ticket, index) => {
-            if (ticket.status === 'ok' && ticket.id) {
-                tokenMap[ticket.id] = validTokens[index];
-            } else if (ticket.status === 'error') {
-                // Handle immediate errors (e.g. DeviceNotRegistered at ticket stage)
-                console.error(`Ticket error for token ${validTokens[index]}:`, ticket.message);
-                if (ticket.details?.error === 'DeviceNotRegistered') {
-                    removeInvalidToken(validTokens[index]);
-                }
-            }
-        });
-
-        checkReceipts(tickets, tokenMap).catch(err =>
-            console.error('Receipt check failed:', err)
-        );
 
         return tickets;
     } catch (error) {
